@@ -1,0 +1,54 @@
+# Environnements virtuels
+venv/
+.env
+.env.*
+
+# Fichiers Python compilés
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Fichiers de logs
+*.log
+
+# Base de données SQLite
+*.sqlite3
+
+# Migrations (optionnel)
+# **/migrations/
+# !**/migrations/__init__.py
+
+# Fichiers Django spécifiques
+db.sqlite3
+media/
+staticfiles/
+
+# VS Code
+.vscode/
+
+# Pytest
+.pytest_cache/
+.coverage
+htmlcov/
+
+# fichiers générés
+*.pot
+*.mo
+
+# fichiers cache
+*.cache
+.cache/
+
+# mypy
+.mypy_cache/
+
+# Profiling
+*.prof
+
+# IDE divers
+.idea/
+*.swp
+*.swo
+
+# Docker
+__docker_cache__/
