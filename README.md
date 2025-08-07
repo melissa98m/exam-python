@@ -45,13 +45,39 @@ docker compose up --build
 ## 📂 Structure du projet
 
 ```bash
-exam/
-├── project_manager/     # App principale (Users & Projects)
-├── exam/                # Configuration Django
-├── db.sqlite3           # Base de données locale
-├── Dockerfile           # Image backend
-├── docker-compose.yml   # Orchestration Docker
-├── requirements.txt     # Dépendances Python
+exam
+├── db.sqlite3  # Base de données locale
+├── docker-compose.yml # Orchestration Docker
+├── Dockerfile  # Image backend
+├── exam          # Configuration Django
+│   ├── asgi.py
+│   ├── __init__.py
+│   ├── __pycache__
+│   │   ├── __init__.cpython-312.pyc
+│   │   ├── settings.cpython-312.pyc
+│   │   ├── urls.cpython-312.pyc
+│   │   └── wsgi.cpython-312.pyc
+│   ├── settings.py
+│   ├── urls.py
+│   └── wsgi.py
+├── manage.py
+├── project_manager # App principale (Users & Projects)
+│   ├── admin.py
+│   ├── apps.py
+│   ├── __init__.py
+│   ├── migrations  # Fichiers migrations
+│   │   ├── 0001_initial.py
+│   │   └── __init__.py
+│   ├── models.py
+│   ├── pagination.py
+│   ├── permissions.py
+│   ├── serializers.py
+│   ├── tests.py
+│   ├── urls.py
+│   └── views.py
+├── README.md
+└── requirements.txt    # Dépendances Python
+
 ```
  ## 🔐 Authentification JWT
  
@@ -78,7 +104,7 @@ exam/
 | ------: | --------------------- | -------------------------------- |
 |    POST | `/api/users/register/`| Créer un compte utilisateur      |
 |    POST | `/api/users/login/`   | Se connecter (JWT)               |
-|     GET | `/api/projects/`      | Lister les projets (auth requis) |
+|     GET | `/api/projects/`      | Lister les projets               |
 |    POST | `/api/projects/`      | Créer un projet (auth requis)    |
 |     GET | `/api/projects/<id>/` | Détail d’un projet               |
 |     PUT | `/api/projects/<id>/` | Modifier un projet (si owner)    |
@@ -103,7 +129,7 @@ pip install -r requirements.txt
 python manage.py migrate
 python manage.py runserver
 ```
-2. Créer un superutilisateur
+2. Créer un super utilisateur
 
 ```bash
 python manage.py createsuperuser
