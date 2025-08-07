@@ -131,16 +131,17 @@ Ce projet inclut une suite de tests automatisés basée sur `APITestCase` de Dja
 ----------------------------------------------------------------------
 Ran 8 tests in 7.1s
 OK
+
 ```
 
-    📁 Emplacement des tests
+📁 Emplacement des tests
 
 Tous les tests sont dans le fichier suivant :
 
 ```bash
 project_manager/tests.py
 ```
-    🔍 Ce que testent les scénarios
+🔍 Ce que testent les scénarios
 
 | Classe         | Méthode                               | Comportement vérifié             |
 | -------------- | ------------------------------------- | -------------------------------- |
