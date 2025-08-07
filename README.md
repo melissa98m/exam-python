@@ -188,6 +188,26 @@ project_manager/tests.py
 python manage.py test project_manager.tests.ProjectTests.test_create_project_authenticated
 ```
 
+## 🚀 CI/CD (tests automatisés)
+
+Ce projet utilise **GitHub Actions** pour exécuter automatiquement les tests à chaque :
+
+- `push` sur la branche `main`
+- création/modification de `pull request` vers `main`
+
+### 🔍 Objectif
+
+Assurer que tout le projet reste fonctionnel à chaque mise à jour, sans casser de fonctionnalité.
+
+### ⚙️ Workflow déclenché
+
+Le workflow (`.github/workflows/tests.yml`) :
+
+- Installe les dépendances Python
+- Applique les migrations
+- Exécute la suite de tests avec la commande
+
+
 ## 📌 Notes
 
 - La base de données par défaut est SQLite.
