@@ -30,6 +30,7 @@ jobs:
     - name: Run tests
       run: |
         python manage.py test
+        coverage report -m
 
     - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v5
