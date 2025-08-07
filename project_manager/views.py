@@ -48,7 +48,3 @@ class ProjectDetail(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsOwnerOrReadOnly]
     lookup_field = 'id'
 
-    def get_queryset(self):
-        username = self.kwargs.get('username')
-        return Project.objects.filter(owner__username=username)
-
