@@ -36,8 +36,8 @@ docker exec -it exam-web-1 bash
 ``` 
 Redémarrer avec une base propre (si besoin)
 ```bash
-docker-compose down -v
-docker-compose up --build
+docker compose down -v
+docker compose up --build
 ```
 >[!CAUTION]
 >⚠️ Le flag -v supprime aussi le volume (donc la base de données SQLite).
