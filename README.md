@@ -1,5 +1,5 @@
 [![Python 3.12.3+](https://img.shields.io/badge/Python-3.12.3%2B-a6e3a1?labelColor=45475a)](https://docs.python.org)
-[![License MIT](https://img.shields.io/badge/License-MIT-cba6f7.svg?labelColor=45475a)](LICENSE.md)
+[![License MIT](https://img.shields.io/badge/License-MIT-cba6f7.svg?labelColor=45475a)](LICENSE)
 [![codecov](https://codecov.io/gh/melissa98m/exam-python/graph/badge.svg?token=L1MPWRJM6O)](https://codecov.io/gh/melissa98m/exam-python)
 # 🧪 Exam - Gestion de projets collaboratifs avec Django & DRF
 
