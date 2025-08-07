@@ -25,12 +25,9 @@ jobs:
         pip install pytest pytest-cov
 
     - name: Run migrations
-      run: python manage.py migrate
+      run: python manage.py migrate 
 
-    - name: Run tests
-      run: python manage.py test 
-
-    - name: Run coverage
+    - name: Run test & coverage
       run:  |
         coverage run manage.py test
         coverage report -m
