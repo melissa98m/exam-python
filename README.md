@@ -69,7 +69,8 @@ exam/
   "refresh": "<refresh_token>"
 }
 ```
-[!NOTE] L'authentification est requise (Bearer Token) pour accéder aux routes protégées.
+>[!NOTE]
+>L'authentification est requise (Bearer Token) pour accéder aux routes protégées.
 
 ## 🧪 Endpoints disponibles
 
