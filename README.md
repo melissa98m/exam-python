@@ -39,7 +39,8 @@ Redémarrer avec une base propre (si besoin)
 docker-compose down -v
 docker-compose up --build
 ```
-[!CAUTION] ⚠️ Le flag -v supprime aussi le volume (donc la base de données SQLite).
+>[!CAUTION]
+>⚠️ Le flag -v supprime aussi le volume (donc la base de données SQLite).
 
 ## 📂 Structure du projet
 
