@@ -2,8 +2,13 @@ from django.urls import reverse
 from rest_framework.test import APITestCase
 from rest_framework import status
 from django.contrib.auth import get_user_model
-from .models import Project
+from .models import Project, User
+from .serializers import ProjectSerializer, UserSerializer 
 from math import ceil
+from unittest.mock import patch
+from django.core.exceptions import ValidationError as DjangoValidationError
+from rest_framework.exceptions import ValidationError as DRFValidationError
+
 
 User = get_user_model()
 
@@ -135,6 +140,68 @@ class UserDetailTests(APITestCase):
             fail("get_object() ne renvoie pas le bon utilisateur", resp.data)
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.data['username'], 'meuser')
+
+# Test error in UserSerializer
+class UserSerializerErrorTests(APITestCase):
+    def test_password_validation_error_is_propagated(self):
+        info("Validation mot de passe faible (mock DjangoValidationError)")
+        with patch(
+            "project_manager.serializers.validate_password",
+            side_effect=DjangoValidationError(["Too weak"])
+        ):
+            ser = UserSerializer(data={"username": "bob", "email": "b@example.com", "password": "weak"})
+            is_valid = ser.is_valid()
+        if (not is_valid) and ("password" in ser.errors) and ("Too weak" in ser.errors["password"][0]):
+            ok("Erreur 'Too weak' détectée et propagée")
+        else:
+            fail("Erreur 'Too weak' non détectée/propagée", ser.errors)
+        self.assertFalse(is_valid)
+        self.assertIn("password", ser.errors)
+        self.assertIn("Too weak", ser.errors["password"][0])
+
+    def test_email_format_invalid(self):
+        info("Validation email invalide")
+        ser = UserSerializer(data={"username": "john", "email": "not-an-email", "password": "Str0ngPassw0rd!"})
+        if not ser.is_valid() and "email" in ser.errors:
+            ok("Email invalide détecté")
+        else:
+            fail("Email invalide non détecté", ser.errors)
+        self.assertIn("email", ser.errors)
+
+    def test_password_is_hashed_and_not_returned(self):
+        info("Vérification hashage du mot de passe")
+        ser = UserSerializer(data={"username": "alice", "email": "a@example.com", "password": "Str0ngPassw0rd!"})
+        self.assertTrue(ser.is_valid(), ser.errors)
+        user = ser.save()
+        if user.password.startswith("pbkdf2_") and user.password != "Str0ngPassw0rd!":
+            ok("Mot de passe hashé correctement")
+        else:
+            fail("Mot de passe non hashé", user.password)
+
+        out = UserSerializer(instance=user).data
+        if "password" not in out:
+            ok("Mot de passe absent de la sortie")
+        else:
+            fail("Mot de passe présent dans la sortie", out)
+
+    def test_required_fields(self):
+        info("Validation champs obligatoires manquants")
+        ser = UserSerializer(data={})
+        is_valid = ser.is_valid()
+        if not is_valid:
+         ok("Validation a bien échoué")
+        else:
+            fail("Validation aurait dû échouer", ser.validated_data)
+
+        missing = [f for f in ("username", "email", "password") if f in ser.errors]
+        if len(missing) == 3:
+            ok("Tous les champs obligatoires détectés")
+        else:
+            fail("Champs obligatoires manquants non détectés", ser.errors)
+
+        self.assertFalse(is_valid)
+        for field in ("username", "email", "password"):
+            self.assertIn(field, ser.errors)
 
 
 # Test project model (CRUD)
@@ -424,3 +491,56 @@ class ProjectSearchOrderTests(APITestCase):
         else:
             fail("Tri descendant par title échoue", titles)
         self.assertGreaterEqual(titles[0], titles[-1])
+
+
+#Test error in ProjectSerializer
+class ProjectSerializerErrorTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='u', email='u@example.com', password='pass123')
+
+    def test_title_required(self):
+        info("Validation titre obligatoire (serializer)")
+        ser = ProjectSerializer(data={"description": "ok"})
+        if not ser.is_valid() and "title" in ser.errors:
+            ok("Erreur 'title' détectée")
+        else:
+            fail("Erreur 'title' non détectée", ser.errors)
+        self.assertIn("title", ser.errors)
+
+    def test_title_too_short(self):
+        info("Validation titre trop court (<5 caractères)")
+        ser = ProjectSerializer(data={"title": "abcd", "description": "ok"})
+        if not ser.is_valid() and "title" in ser.errors:
+            ok("Erreur 'title' pour longueur détectée")
+        else:
+            fail("Erreur 'title' pour longueur non détectée", ser.errors)
+        self.assertIn("au moins 5 caractères", ser.errors["title"][0])
+
+    def test_description_forbidden_word_spam(self):
+        info("Validation mot interdit 'spam'")
+        ser = ProjectSerializer(data={"title": "Valid title", "description": "This is spam here"})
+        if not ser.is_valid() and "description" in ser.errors:
+            ok("Mot 'spam' détecté")
+        else:
+            fail("Mot 'spam' non détecté", ser.errors)
+        self.assertIn("spam", ser.errors["description"][0].lower())
+
+    def test_description_forbidden_word_fake_case_insensitive(self):
+        info("Validation mot interdit 'fake' (case-insensitive)")
+        ser = ProjectSerializer(data={"title": "Another title", "description": "Totally FaKe stuff"})
+        if not ser.is_valid() and "description" in ser.errors:
+            ok("Mot 'fake' détecté")
+        else:
+            fail("Mot 'fake' non détecté", ser.errors)
+        self.assertIn("fake", ser.errors["description"][0].lower())
+
+    def test_owner_is_read_only_ignored_on_input(self):
+        info("Vérification que 'owner' est ignoré en entrée")
+        ser = ProjectSerializer(data={"title": "Good title", "description": "desc", "owner": 999})
+        if ser.is_valid() and "owner" not in ser.validated_data:
+            ok("'owner' ignoré comme prévu")
+        else:
+            fail("'owner' pas ignoré", ser.errors)
+        self.assertNotIn("owner", ser.validated_data)
+
+
