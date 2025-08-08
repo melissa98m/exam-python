@@ -90,6 +90,53 @@ class AuthTests(APITestCase):
         self.assertIn('access', response.data)
         self.assertIn('refresh', response.data)
 
+#Test permission owner read only
+class PermissionOwnerReadOnlyTests(APITestCase):
+    def setUp(self):
+        self.owner = User.objects.create_user(username='ownp', email='ownp@example.com', password='pass123')
+        self.other = User.objects.create_user(username='othp', email='othp@example.com', password='pass123')
+        self.project = Project.objects.create(title='Perm Proj', description='x', owner=self.owner)
+        self.url_detail = reverse('project-list') + f"{self.project.id}/"
+
+    def test_safe_method_allowed_for_non_owner(self):
+        self.client.force_authenticate(user=self.other)
+        info(f"GET {self.url_detail} en tant que non-propriétaire")
+        resp = self.client.get(self.url_detail)
+        if resp.status_code == 200:
+            ok("GET autorisé pour non-propriétaire (SAFE_METHODS)")
+        else:
+            fail("GET interdit pour non-propriétaire", resp.status_code)
+        self.assertEqual(resp.status_code, 200)
+
+    def test_unsafe_method_forbidden_for_non_owner(self):
+        self.client.force_authenticate(user=self.other)
+        info(f"PUT {self.url_detail} en tant que non-propriétaire")
+        resp = self.client.put(self.url_detail, {'title': 'hack', 'description': 'hack'})
+        if resp.status_code == 403:
+            ok("PUT interdit pour non-propriétaire")
+        else:
+            fail("PUT accepté pour non-propriétaire", resp.status_code)
+        self.assertEqual(resp.status_code, 403)
+  
+#Test user detail      
+class UserDetailTests(APITestCase):
+    def setUp(self):
+        self.me = User.objects.create_user(username='meuser', email='me@example.com', password='pass123')
+
+    def test_get_own_profile_ignores_lookup_and_returns_request_user(self):
+        self.client.force_authenticate(user=self.me)
+        url = reverse('user-detail', kwargs={'username': 'someone-else'})
+        info(f"GET {url} en étant connecté comme {self.me.username}")
+        resp = self.client.get(url)
+        info(f"→ status={resp.status_code}, data={resp.data}")
+        if resp.status_code == 200 and resp.data['username'] == 'meuser':
+            ok("get_object() renvoie bien l'utilisateur connecté")
+        else:
+            fail("get_object() ne renvoie pas le bon utilisateur", resp.data)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['username'], 'meuser')
+
+
 # Test project model (CRUD)
 class ProjectTests(APITestCase):
     def setUp(self):
@@ -173,10 +220,42 @@ class ProjectTests(APITestCase):
         else:
             fail("Delete by non-owner should be 403", response.status_code)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-        
+
+
+#Test string in model 
+class ProjectModelStrTests(APITestCase):
+    def test_str_returns_title(self):
+        u = User.objects.create_user(username='u1', email='u1@example.com', password='pass123')
+        p = Project.objects.create(title='Mon Titre', description='d', owner=u)
+        info(f"__str__ du projet → {str(p)}")
+        if str(p) == 'Mon Titre':
+            ok("__str__ renvoie bien le titre")
+        else:
+            fail("__str__ ne renvoie pas le bon titre", str(p))
+        self.assertEqual(str(p), 'Mon Titre')      
+
+#Test project filter
+class ProjectFilterTests(APITestCase):
+    def setUp(self):
+        self.owner = User.objects.create_user(username='ownerf', email='ownerf@example.com', password='pass123')
+        self.client.force_authenticate(user=self.owner)
+        Project.objects.create(title='Django Pro', description='A', owner=self.owner)
+        Project.objects.create(title='React App', description='B', owner=self.owner)
+        self.url_list = reverse('project-list')
+
+    def test_filter_by_title_param(self):
+        info(f"GET {self.url_list}?title=Django → Filtre par titre")
+        resp = self.client.get(self.url_list, {'title': 'Django'})
+        info(f"→ status={resp.status_code}, titles={[p['title'] for p in resp.data['results']]}")
+        if resp.status_code == 200 and all('Django' in t for t in [p['title'] for p in resp.data['results']]):
+            ok("Filtrage par titre fonctionne")
+        else:
+            fail("Filtrage par titre ne fonctionne pas", resp.data)
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(all('Django' in t for t in [p['title'] for p in resp.data['results']]))
+
  
- # Test pagination project     
-    
+ # Test pagination project       
 class ProjectPaginationTests(APITestCase):
     def setUp(self):
         self.owner = User.objects.create_user(username='owner', email='owner@example.com', password='pass123')
@@ -244,7 +323,6 @@ class ProjectPaginationTests(APITestCase):
 
 
 # Test pagination max 
-
 class ProjectPaginationMaxPageSizeTests(APITestCase):
     
     def setUp(self):
@@ -274,4 +352,75 @@ class ProjectPaginationMaxPageSizeTests(APITestCase):
         self.assertIsNone(response2.data['next'])
         self.assertIsNotNone(response2.data['previous'])
 
+#Test serializer of project
+class ProjectSerializerTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='suser', email='suser@example.com', password='pass123')
+        self.client.force_authenticate(user=self.user)
+        self.url_list = reverse('project-list')
 
+    def test_owner_is_read_only_on_create(self):
+        payload = {'title': 'S Proj', 'description': 'desc', 'owner': 9999}
+        info(f"POST {self.url_list} avec owner forcé={payload['owner']}")
+        resp = self.client.post(self.url_list, payload, format='json')
+        if resp.status_code == 201 and resp.data['owner'] == self.user.id:
+            ok("owner ignoré lors de la création, prend l'utilisateur connecté")
+        else:
+            fail("owner non ignoré ou mauvais status", resp.data)
+        self.assertEqual(resp.status_code, 201)
+        self.assertEqual(resp.data['owner'], self.user.id)
+
+    def test_validation_title_required(self):
+        info(f"POST {self.url_list} sans title")
+        resp = self.client.post(self.url_list, {'description': 'no title'}, format='json')
+        if resp.status_code == 400 and 'title' in resp.data:
+            ok("Validation title obligatoire fonctionne")
+        else:
+            fail("Validation title obligatoire échoue", resp.data)
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn('title', resp.data)
+
+    def test_update_does_not_allow_owner_change(self):
+        create = self.client.post(self.url_list, {'title': 'Fix', 'description': 'x'}, format='json')
+        detail_url = f"{self.url_list}{create.data['id']}/"
+        info(f"PATCH {detail_url} pour changer owner")
+        resp = self.client.patch(detail_url, {'owner': None}, format='json')
+        if resp.status_code == 200 and resp.data['owner'] == self.user.id:
+            ok("owner inchangé après update")
+        else:
+            fail("owner modifié après update", resp.data)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['owner'], self.user.id)
+
+
+#Test search an order in project
+class ProjectSearchOrderTests(APITestCase):
+    def setUp(self):
+        self.u = User.objects.create_user(username='ord', email='ord@example.com', password='pass123')
+        self.client.force_authenticate(user=self.u)
+        Project.objects.bulk_create([
+            Project(title='Alpha', description='d', owner=self.u),
+            Project(title='Beta', description='d', owner=self.u),
+            Project(title='Gamma', description='d', owner=self.u),
+        ])
+        self.url_list = reverse('project-list')
+
+    def test_search_by_title(self):
+        info(f"GET {self.url_list}?search=Beta")
+        resp = self.client.get(self.url_list, {'search': 'Beta'})
+        titles = [r['title'] for r in resp.data['results']]
+        if 'Beta' in titles:
+            ok("Recherche par title fonctionne")
+        else:
+            fail("Recherche par title ne fonctionne pas", titles)
+        self.assertIn('Beta', titles)
+
+    def test_ordering_by_title_desc(self):
+        info(f"GET {self.url_list}?ordering=-title")
+        resp = self.client.get(self.url_list, {'ordering': '-title'})
+        titles = [r['title'] for r in resp.data['results']]
+        if titles and titles[0] >= titles[-1]:
+            ok("Tri descendant par title fonctionne")
+        else:
+            fail("Tri descendant par title échoue", titles)
+        self.assertGreaterEqual(titles[0], titles[-1])
