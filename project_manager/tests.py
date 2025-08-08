@@ -381,7 +381,7 @@ class ProjectSerializerTests(APITestCase):
         self.assertIn('title', resp.data)
 
     def test_update_does_not_allow_owner_change(self):
-        create = self.client.post(self.url_list, {'title': 'Fix', 'description': 'x'}, format='json')
+        create = self.client.post(self.url_list, {'title': 'Fixing', 'description': 'x'}, format='json')
         detail_url = f"{self.url_list}{create.data['id']}/"
         info(f"PATCH {detail_url} pour changer owner")
         resp = self.client.patch(detail_url, {'owner': None}, format='json')

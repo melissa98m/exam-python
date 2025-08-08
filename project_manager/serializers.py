@@ -24,11 +24,12 @@ class UserSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 class ProjectSerializer(serializers.ModelSerializer):
-    owner = serializers.ReadOnlyField(source='owner.username')
+    owner = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
         model = Project
         fields = ['id', 'title', 'description', 'created_at', 'owner']
+        read_only_fields = ['id','owner']
         
     def validate_title(self, value):
         """
