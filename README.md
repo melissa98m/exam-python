@@ -190,6 +190,26 @@ project_manager/tests.py
 ```bash
 python manage.py test project_manager.tests.ProjectTests.test_create_project_authenticated
 ```
+### 📊 Couverture des tests
+
+La couverture de code est mesurée automatiquement à chaque exécution des tests grâce à **coverage** et [Codecov](https://about.codecov.io/).
+
+- **Rapport dans la console** : affiché à la fin de chaque `coverage report -m`
+- **Rapport en ligne** : accessible via [Codecov](https://codecov.io/gh/melissa98m/exam-python)
+
+#### 📌 Lancer la couverture en local
+
+```bash
+coverage run manage.py test
+coverage report -m
+```
+#### 📌 Générer un rapport HTML 
+
+```bash
+coverage html
+```
+>[!NOTE]
+> Le rapport généré est visible sur l'url file:///{path_of_folder}/htmlcov/index.html
 
 ## 🚀 CI/CD (tests automatisés)
 
@@ -210,6 +230,10 @@ Le workflow (`.github/workflows/tests.yml`) :
 - Applique les migrations
 - Exécute la suite de tests avec la commande
 
+### 📦 Télécharger le rapport HTML depuis la CI
+
+À chaque run GitHub Actions, un artefact **coverage-html** est généré (dossier `htmlcov`).  
+👉 Allez dans l’onglet **Actions** > test.py > **Artifacts** > **coverage-html** pour le télécharger.
 
 ## 📌 Notes
 
