@@ -14,6 +14,7 @@ Ce projet est une API REST construite avec Django et Django REST Framework, perm
 - Rafraîchissement de tokens (`/api/users/token/refresh/`)
 - Création, modification, suppression de projets
 - API REST sécurisée avec des permissions personnalisées
+- Documentation interactive Swagger & Redoc
 - Filtres : recherche, tri, pagination
 - Base de données SQLite pour le développement
 - Docker & docker-compose pour l'exécution
@@ -137,6 +138,22 @@ python manage.py runserver
 ```bash
 python manage.py createsuperuser
 ```
+## 📜 Documentation API (Swagger & Redoc)
+La documentation des endpoints est générée automatiquement grâce à drf-yasg et aux décorateurs @swagger_auto_schema intégrés dans les vues.
+Elle inclut :
+
+  - La description des opérations
+
+  - Les paramètres de requête documentés (title, search, ordering)
+
+  - Les schémas des requêtes/réponses (UserSerializer, ProjectSerializer)
+
+### Accès à la documentation
+
+Swagger UI : `http://localhost:8000/swagger/`
+
+Redoc : `http://localhost:8000/redoc/`
+
 
 ## ✅ Tests
 
