@@ -3,25 +3,63 @@ from rest_framework.test import APITestCase
 from rest_framework import status
 from django.contrib.auth import get_user_model
 from .models import Project
+from math import ceil
 
 User = get_user_model()
+
+
+#  Couleurs & helpers logs
+GREEN = "\033[92m"
+RED = "\033[91m"
+YELLOW = "\033[93m"
+BLUE = "\033[94m"
+BOLD = "\033[1m"
+RESET = "\033[0m"
+
+def ok(msg):
+    print(f"{GREEN}✓ {msg}{RESET}")
+
+def fail(msg, extra=None):
+    if extra is not None:
+        print(f"{RED}✗ {msg} → {extra}{RESET}")
+    else:
+        print(f"{RED}✗ {msg}{RESET}")
+
+def info(msg):
+    print(f"{BLUE}• {msg}{RESET}")
+    
+# Test registration 
 
 class UserTests(APITestCase):
     def test_user_registration(self):
         url = reverse('user-register')
-        data = {
-            'email': 'test@example.com',
-            'username': 'terstin',
-            'password': 'strongpassword123'
-        }
-        print(f"[TEST] Registering user with: {data}")
+        data = {'email': 'test@example.com', 'username': 'terstin', 'password': 'strongpassword123'}
+        info(f"POST {url} with {data}")
         response = self.client.post(url, data, format='json')
-        print(f"[RESPONSE] Status: {response.status_code}, Data: {response.data}")
+        info(f"→ status={response.status_code}, data={getattr(response, 'data', None)}")
+
+        if response.status_code == status.HTTP_201_CREATED:
+            ok("User registration returned 201")
+        else:
+            fail("User registration did not return 201", response.status_code)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(User.objects.count(), 1)
-        self.assertEqual(User.objects.first().email, 'test@example.com')
+
+        count = User.objects.count()
+        if count == 1:
+            ok("Exactly 1 user in database")
+        else:
+            fail("Unexpected users count", count)
+        self.assertEqual(count, 1)
+
+        email = User.objects.first().email
+        if email == 'test@example.com':
+            ok("Registered user email matches")
+        else:
+            fail("Registered user email mismatch", email)
+        self.assertEqual(email, 'test@example.com')
 
 
+# Test auth
 class AuthTests(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(
@@ -31,87 +69,209 @@ class AuthTests(APITestCase):
         )
 
     def test_login_jwt(self):
-        data = {
-            'username': 'terstin',
-            'password': 'testpass123'
-        }
-        print(f"[TEST] Logging in with: {data}")
-        response = self.client.post('/api/users/login/', data, format='json')
-        print(f"[RESPONSE] Status: {response.status_code}, Data: {response.data}")
+        url = '/api/users/login/'
+        payload = {'username': 'terstin', 'password': 'testpass123'}
+        info(f"POST {url} with {payload}")
+        response = self.client.post(url, payload, format='json')
+        info(f"→ status={response.status_code}, data={getattr(response, 'data', None)}")
+
+        if response.status_code == 200:
+            ok("JWT login returned 200")
+        else:
+            fail("JWT login did not return 200", response.status_code)
         self.assertEqual(response.status_code, 200)
+
+        has_access = 'access' in response.data
+        has_refresh = 'refresh' in response.data
+        if has_access and has_refresh:
+            ok("JWT tokens present (access & refresh)")
+        else:
+            fail("Missing JWT tokens", response.data)
         self.assertIn('access', response.data)
         self.assertIn('refresh', response.data)
 
-
+# Test project model (CRUD)
 class ProjectTests(APITestCase):
     def setUp(self):
-        self.owner = User.objects.create_user(
-            username='owner', email='owner@example.com', password='pass123'
-        )
-        self.other_user = User.objects.create_user(
-            username='other', email='other@example.com', password='pass123'
-        )
-        self.project = Project.objects.create(
-            title='Projet initial',
-            description='Un projet de test',
-            owner=self.owner
-        )
-        self.url_list = '/api/projects/'
-        self.url_detail = f'/api/projects/{self.project.id}/'
+        self.owner = User.objects.create_user(username='owner', email='owner@example.com', password='pass123')
+        self.other_user = User.objects.create_user(username='other', email='other@example.com', password='pass123')
+        self.project = Project.objects.create(title='Projet initial', description='Un projet de test', owner=self.owner)
+        self.url_list = reverse('project-list')               # "/api/projects/"
+        self.url_detail = f"{self.url_list}{self.project.id}/"  # "/api/projects/<id>/"
 
     def test_create_project_authenticated(self):
         self.client.force_authenticate(user=self.owner)
-        data = {
-            'title': 'Nouveau projet',
-            'description': 'Description du nouveau projet'
-        }
-        print(f"[TEST] Create project (auth): {data}")
+        data = {'title': 'Nouveau projet', 'description': 'Description du nouveau projet'}
+        info(f"POST {self.url_list} (auth as owner) with {data}")
         response = self.client.post(self.url_list, data)
-        print(f"[RESPONSE] Status: {response.status_code}, Data: {response.data}")
+        info(f"→ status={response.status_code}, data={getattr(response, 'data', None)}")
+
+        if response.status_code == status.HTTP_201_CREATED:
+            ok("Create project (auth) returned 201")
+        else:
+            fail("Create project (auth) did not return 201", response.status_code)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
     def test_create_project_unauthenticated(self):
-        data = {
-            'title': 'Projet non autorisé',
-            'description': 'Tentative sans auth'
-        }
-        print(f"[TEST] Create project (unauth): {data}")
+        data = {'title': 'Projet non autorisé', 'description': 'Tentative sans auth'}
+        info(f"POST {self.url_list} (unauth) with {data}")
         response = self.client.post(self.url_list, data)
-        print(f"[RESPONSE] Status: {response.status_code}, Data: {response.data}")
+        info(f"→ status={response.status_code}, data={getattr(response, 'data', None)}")
+
+        if response.status_code == status.HTTP_401_UNAUTHORIZED:
+            ok("Create project (unauth) returned 401")
+        else:
+            fail("Create project (unauth) did not return 401", response.status_code)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_update_project_by_owner(self):
         self.client.force_authenticate(user=self.owner)
-        data = {
-            'title': 'Projet modifié',
-            'description': 'Nouvelle description'
-        }
-        print(f"[TEST] Update project by owner: {data}")
+        data = {'title': 'Projet modifié', 'description': 'Nouvelle description'}
+        info(f"PUT {self.url_detail} (as owner) with {data}")
         response = self.client.put(self.url_detail, data)
-        print(f"[RESPONSE] Status: {response.status_code}, Data: {response.data}")
+        info(f"→ status={response.status_code}, data={getattr(response, 'data', None)}")
+
+        if response.status_code == status.HTTP_200_OK:
+            ok("Update by owner returned 200")
+        else:
+            fail("Update by owner did not return 200", response.status_code)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_update_project_by_other_user(self):
         self.client.force_authenticate(user=self.other_user)
-        data = {
-            'title': 'Hacking du projet',
-            'description': 'Je ne suis pas le propriétaire'
-        }
-        print(f"[TEST] Update project by non-owner: {data}")
+        data = {'title': 'Hacking du projet', 'description': 'Je ne suis pas le propriétaire'}
+        info(f"PUT {self.url_detail} (as other) with {data}")
         response = self.client.put(self.url_detail, data)
-        print(f"[RESPONSE] Status: {response.status_code}, Data: {response.data}")
+        info(f"→ status={response.status_code}, data={getattr(response, 'data', None)}")
+
+        if response.status_code == status.HTTP_403_FORBIDDEN:
+            ok("Update by non-owner correctly forbidden (403)")
+        else:
+            fail("Update by non-owner should be 403", response.status_code)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_delete_project_by_owner(self):
         self.client.force_authenticate(user=self.owner)
-        print(f"[TEST] Delete project by owner")
+        info(f"DELETE {self.url_detail} (as owner)")
         response = self.client.delete(self.url_detail)
-        print(f"[RESPONSE] Status: {response.status_code}")
+        info(f"→ status={response.status_code}")
+
+        if response.status_code == status.HTTP_204_NO_CONTENT:
+            ok("Delete by owner returned 204")
+        else:
+            fail("Delete by owner did not return 204", response.status_code)
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
 
     def test_delete_project_by_other_user(self):
         self.client.force_authenticate(user=self.other_user)
-        print(f"[TEST] Delete project by non-owner")
+        info(f"DELETE {self.url_detail} (as other)")
         response = self.client.delete(self.url_detail)
-        print(f"[RESPONSE] Status: {response.status_code}, Data: {response.data}")
+        info(f"→ status={response.status_code}, data={getattr(response, 'data', None)}")
+
+        if response.status_code == status.HTTP_403_FORBIDDEN:
+            ok("Delete by non-owner correctly forbidden (403)")
+        else:
+            fail("Delete by non-owner should be 403", response.status_code)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        
+ 
+ # Test pagination project     
+    
+class ProjectPaginationTests(APITestCase):
+    def setUp(self):
+        self.owner = User.objects.create_user(username='owner', email='owner@example.com', password='pass123')
+        self.client.force_authenticate(user=self.owner)
+        Project.objects.bulk_create([
+            Project(title=f'Projet {i}', description='desc', owner=self.owner)
+            for i in range(1, 8)  
+        ])
+        self.url_list = reverse('project-list') 
+
+    def test_pagination_default_page_1(self):
+        response = self.client.get(self.url_list)
+        info(f"GET {self.url_list} → status={response.status_code}")
+        if response.status_code == status.HTTP_200_OK:
+            ok("Pagination page 1 returned 200")
+        else:
+            fail("Pagination page 1 did not return 200", response.status_code)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        for key in ['total_count', 'total_pages', 'current_page', 'next', 'previous', 'results']:
+            if key in response.data:
+                ok(f"Key '{key}' present in response")
+            else:
+                fail(f"Missing key '{key}' in response")
+            self.assertIn(key, response.data)
+
+        self.assertEqual(response.data['total_count'], 7)
+        self.assertEqual(response.data['total_pages'], ceil(7 / 2))  
+        self.assertEqual(response.data['current_page'], 1)
+        self.assertIsNotNone(response.data['next'])
+        self.assertIsNone(response.data['previous'])
+        self.assertEqual(len(response.data['results']), 2)
+
+    def test_pagination_page_2(self):
+        response = self.client.get(self.url_list, {'page': 2})
+        info(f"GET {self.url_list}?page=2 → status={response.status_code}")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['current_page'], 2)
+        self.assertIsNotNone(response.data['next'])
+        self.assertIsNotNone(response.data['previous'])
+        self.assertEqual(len(response.data['results']), 2)
+
+    def test_pagination_with_page_size_override(self):
+        response = self.client.get(self.url_list, {'page_size': 3})
+        info(f"GET {self.url_list}?page_size=3 → status={response.status_code}")
+        if len(response.data['results']) == 3:
+            ok("page_size override respected (3)")
+        else:
+            fail("page_size override mismatch", len(response.data['results']))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['total_pages'], ceil(7 / 3))
+        self.assertEqual(response.data['current_page'], 1)
+        self.assertEqual(len(response.data['results']), 3)
+
+    def test_pagination_last_page_counts(self):
+        response = self.client.get(self.url_list, {'page_size': 3, 'page': 3})
+        info(f"GET {self.url_list}?page_size=3&page=3 → status={response.status_code}")
+        if len(response.data['results']) == 1:
+            ok("last page size is 1 as expected")
+        else:
+            fail("last page size mismatch", len(response.data['results']))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['current_page'], 3)
+        self.assertEqual(len(response.data['results']), 1)
+
+
+# Test pagination max 
+
+class ProjectPaginationMaxPageSizeTests(APITestCase):
+    
+    def setUp(self):
+        self.owner = User.objects.create_user(username='owner2', email='owner2@example.com', password='pass123')
+        self.client.force_authenticate(user=self.owner)
+        Project.objects.bulk_create([
+            Project(title=f'Projet Cap {i}', description='desc', owner=self.owner)
+            for i in range(1, 56)  
+        ])
+        self.url_list = reverse('project-list')
+
+    def test_page_size_capped_to_max_50(self):
+        response = self.client.get(self.url_list, {'page_size': 999})
+        info(f"GET {self.url_list}?page_size=999 → status={response.status_code}")
+        size = len(response.data['results'])
+        if size == 50:
+            ok("max_page_size cap applied (50)")
+        else:
+            fail("max_page_size cap not applied", size)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(size, 50)
+
+        response2 = self.client.get(self.url_list, {'page_size': 999, 'page': 2})
+        info(f"GET {self.url_list}?page_size=999&page=2 → status={response2.status_code}")
+        self.assertEqual(response2.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response2.data['results']), 5)
+        self.assertIsNone(response2.data['next'])
+        self.assertIsNotNone(response2.data['previous'])
+
+
