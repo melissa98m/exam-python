@@ -32,6 +32,17 @@ jobs:
         coverage run manage.py test
         coverage report -m
 
+    - name: Generate HTML coverage report
+      run: coverage html
+
+    - name: Upload coverage HTML artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-html
+        path: htmlcov
+        if-no-files-found: error
+        retention-days: 7
+
     - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v5
       with:
